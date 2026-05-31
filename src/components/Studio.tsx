@@ -7,7 +7,7 @@ import {
   History, Trash2, RotateCw, FolderOpen, AlertCircle,
 } from "lucide-react";
 import { transformImage } from "@/lib/transform.functions";
-import { DMC, ACRILEX, nearest, rgbToHex } from "@/lib/dmc-palette";
+import { DMC, PAINT_BRANDS, getBrand, nearest, paintEquivalents, rgbToHex } from "@/lib/dmc-palette";
 import { imageToStitch, drawStitch, type StitchResult } from "@/lib/cross-stitch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
