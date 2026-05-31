@@ -389,7 +389,7 @@ export default function Studio() {
                   <Palette className="size-4" /> Extrair Cores
                 </PrimaryBtn>
               ) : active === "mockup" ? (
-                <PrimaryBtn onClick={() => setVariant("linear") || runAI()} loading={loading} disabled={!imageData}>
+                <PrimaryBtn onClick={() => { setVariant("linear"); runAI(); }} loading={loading} disabled={!imageData}>
                   <Boxes className="size-4" /> Extrair Elementos
                 </PrimaryBtn>
               ) : (
