@@ -561,9 +561,19 @@ function ControlsForModule(props: {
   }
   if (active === "cores-tinta") {
     return (
-      <Section title="Marca de Tinta">
-        <OptionRow active={paintPalette === "acrilex"} onClick={() => setPaintPalette("acrilex")} label="Acrilex" />
-        <OptionRow active={paintPalette === "dmc"} onClick={() => setPaintPalette("dmc")} label="DMC (referência)" />
+      <Section title="Marca principal de Tinta">
+        {PAINT_BRANDS.map((b) => (
+          <OptionRow
+            key={b.id}
+            active={paintPalette === b.id}
+            onClick={() => setPaintPalette(b.id)}
+            label={b.label}
+            desc={`${b.line} · ${b.colors.length} cores`}
+          />
+        ))}
+        <p className="text-[11px] text-muted-foreground mt-2 px-1">
+          O resultado mostra a marca escolhida em destaque + equivalência automática nas demais marcas nacionais.
+        </p>
       </Section>
     );
   }
