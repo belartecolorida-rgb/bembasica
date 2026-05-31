@@ -64,6 +64,8 @@ export default function Studio() {
   const [paintPalette, setPaintPalette] = useState<"dmc" | "acrilex">("dmc");
   const [extractedColors, setExtractedColors] = useState<{ hex: string; pct: number }[]>([]);
   const [mockupSurface, setMockupSurface] = useState<"camiseta" | "caneca" | "bastidor" | "tecido">("camiseta");
+  const [history, setHistory] = useState<HistoryItem[]>(() => loadHistory());
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const stitchCanvasRef = useRef<HTMLCanvasElement>(null);
   const transform = useServerFn(transformImage);
