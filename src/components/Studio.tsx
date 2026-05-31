@@ -120,11 +120,20 @@ export default function Studio() {
   async function runAI() {
     if (!imageData) return setError("Envie uma imagem primeiro.");
     setLoading(true); setError(null); setResultUrl(null);
+    const pendingId = pushHistory(setHistory, {
+      module: active, variant: currentMode, status: "pending",
+      thumb: await makeThumb(imageData), originalRef: imageData,
+    });
     try {
       const { imageUrl } = await transform({ data: { imageBase64: imageData, mode: currentMode } });
       setResultUrl(imageUrl);
+      updateHistory(setHistory, pendingId, {
+        status: "ok", resultRef: imageUrl, resultThumb: await makeThumb(imageUrl),
+      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro desconhecido");
+      const msg = e instanceof Error ? e.message : "Erro desconhecido";
+      setError(msg);
+      updateHistory(setHistory, pendingId, { status: "error", errorMsg: msg });
     } finally {
       setLoading(false);
     }
@@ -139,6 +148,12 @@ export default function Studio() {
       setStitch(result);
       requestAnimationFrame(() => {
         if (stitchCanvasRef.current) drawStitch(result, stitchCanvasRef.current);
+      });
+      const thumb = await makeThumb(imageData);
+      pushHistory(setHistory, {
+        module: active, variant: `ponto-cruz-${count}ct`, status: "ok",
+        thumb, originalRef: imageData,
+        meta: `${result.cols}×${result.rows} · ${result.legend.length} cores`,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro");
