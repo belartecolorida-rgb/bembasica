@@ -4,10 +4,12 @@ import {
   Brush, Image as ImageIcon, Palette, Grid3x3, Sparkles, Download,
   Upload, Layers, Sun, Moon, Wand2, Loader2, Pencil, Shirt,
   Boxes, Cpu, FileImage, ChevronRight, CheckCircle2,
+  History, Trash2, RotateCw, FolderOpen, AlertCircle,
 } from "lucide-react";
 import { transformImage } from "@/lib/transform.functions";
 import { DMC, ACRILEX, nearest, rgbToHex } from "@/lib/dmc-palette";
 import { imageToStitch, drawStitch, type StitchResult } from "@/lib/cross-stitch";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 type ModuleId =
   | "bordado" | "pintura" | "ponto-cruz" | "cartoon"
