@@ -68,8 +68,27 @@ export default function Studio() {
   const [paintPalette, setPaintPalette] = useState<string>("acrilex");
   const [extractedColors, setExtractedColors] = useState<{ hex: string; pct: number }[]>([]);
   const [mockupSurface, setMockupSurface] = useState<"camiseta" | "caneca" | "bastidor" | "tecido">("camiseta");
-  const [history, setHistory] = useState<HistoryItem[]>(() => loadHistory());
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [projectName, setProjectName] = useState<string>("");
+  const [overrides, setOverrides] = useState<Record<string, ColorOverride>>({});
+  const [savedTick, setSavedTick] = useState(0);
+
+  // Hydration-safe load from localStorage (avoids SSR/CSR mismatch).
+  useEffect(() => {
+    setHistory(loadHistory());
+    const current = getCurrentProject();
+    if (current) {
+      const p = getProject(current);
+      if (p) {
+        setProjectName(p.name);
+        setOverrides(p.overrides ?? {});
+        setPaintPalette(p.paintPalette);
+      }
+    }
+    setHydrated(true);
+  }, []);
 
   const stitchCanvasRef = useRef<HTMLCanvasElement>(null);
   const transform = useServerFn(transformImage);
