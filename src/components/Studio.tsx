@@ -7,7 +7,7 @@ import {
   History, Trash2, RotateCw, FolderOpen, AlertCircle,
 } from "lucide-react";
 import { transformImage } from "@/lib/transform.functions";
-import { DMC, ACRILEX, nearest, rgbToHex } from "@/lib/dmc-palette";
+import { DMC, PAINT_BRANDS, getBrand, nearest, paintEquivalents, rgbToHex } from "@/lib/dmc-palette";
 import { imageToStitch, drawStitch, type StitchResult } from "@/lib/cross-stitch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
@@ -61,7 +61,7 @@ export default function Studio() {
   const [variant, setVariant] = useState<string>("bordado-intermediario");
   const [count, setCount] = useState(14);
   const [stitch, setStitch] = useState<StitchResult | null>(null);
-  const [paintPalette, setPaintPalette] = useState<"dmc" | "acrilex">("dmc");
+  const [paintPalette, setPaintPalette] = useState<string>("acrilex");
   const [extractedColors, setExtractedColors] = useState<{ hex: string; pct: number }[]>([]);
   const [mockupSurface, setMockupSurface] = useState<"camiseta" | "caneca" | "bastidor" | "tecido">("camiseta");
   const [history, setHistory] = useState<HistoryItem[]>(() => loadHistory());
@@ -361,12 +361,11 @@ export default function Studio() {
                   </Panel>
                 )}
 
-                {(active === "cores-linha" || active === "cores-tinta") && extractedColors.length > 0 && (
-                  <Panel title={active === "cores-linha" ? "Mapa de Linhas (DMC)" : `Mapa de Tintas (${paintPalette.toUpperCase()})`}>
+                {active === "cores-linha" && extractedColors.length > 0 && (
+                  <Panel title="Mapa de Linhas (DMC)">
                     <div className="grid sm:grid-cols-2 gap-2">
                       {extractedColors.map((c, i) => {
-                        const palette = active === "cores-linha" ? DMC : (paintPalette === "dmc" ? DMC : ACRILEX);
-                        const match = nearest(palette, c.hex);
+                        const match = nearest(DMC, c.hex);
                         return (
                           <div key={i} className="flex items-center gap-3 p-2.5 rounded-md border border-border bg-card">
                             <div className="size-10 rounded-md border border-border shrink-0" style={{ background: c.hex }} />
@@ -375,6 +374,47 @@ export default function Studio() {
                               <p className="text-sm font-medium truncate">{match.code} — {match.name}</p>
                             </div>
                             <div className="size-6 rounded border border-border" style={{ background: match.hex }} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Panel>
+                )}
+
+                {active === "cores-tinta" && extractedColors.length > 0 && (
+                  <Panel title={`Mapa de Tintas · Equivalência entre marcas nacionais`}>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Marca principal destacada: <b>{getBrand(paintPalette)?.label ?? paintPalette}</b>. As demais aparecem como equivalência aproximada (ΔE perceptual).
+                    </p>
+                    <div className="space-y-2">
+                      {extractedColors.map((c, i) => {
+                        const equivalents = paintEquivalents(c.hex);
+                        const primary = equivalents.find((e) => e.brand.id === paintPalette) ?? equivalents[0];
+                        const others = equivalents.filter((e) => e.brand.id !== primary.brand.id);
+                        return (
+                          <div key={i} className="rounded-md border border-border bg-card p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="size-12 rounded-md border border-border shrink-0" style={{ background: c.hex }} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-muted-foreground">{c.hex} · {c.pct.toFixed(1)}% da imagem</p>
+                                <p className="text-sm font-semibold truncate">
+                                  {primary.brand.label} · {primary.match.code} — {primary.match.name}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">{primary.brand.line} · proximidade {100 - primary.delta}%</p>
+                              </div>
+                              <div className="size-8 rounded border border-border" style={{ background: primary.match.hex }} />
+                            </div>
+                            <div className="mt-2.5 pt-2.5 border-t border-border grid sm:grid-cols-3 gap-1.5">
+                              {others.map((e) => (
+                                <div key={e.brand.id} className="flex items-center gap-2 text-xs">
+                                  <div className="size-5 rounded border border-border shrink-0" style={{ background: e.match.hex }} />
+                                  <div className="min-w-0">
+                                    <p className="font-medium truncate">{e.brand.label} · {e.match.code}</p>
+                                    <p className="text-muted-foreground truncate">{e.match.name} · ~{100 - e.delta}%</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         );
                       })}
@@ -481,7 +521,7 @@ function ControlsForModule(props: {
   active: ModuleId;
   variant: string; setVariant: (v: string) => void;
   count: number; setCount: (n: number) => void;
-  paintPalette: "dmc" | "acrilex"; setPaintPalette: (p: "dmc" | "acrilex") => void;
+  paintPalette: string; setPaintPalette: (p: string) => void;
 }) {
   const { active, variant, setVariant, count, setCount, paintPalette, setPaintPalette } = props;
   if (active === "bordado") {
@@ -521,9 +561,19 @@ function ControlsForModule(props: {
   }
   if (active === "cores-tinta") {
     return (
-      <Section title="Marca de Tinta">
-        <OptionRow active={paintPalette === "acrilex"} onClick={() => setPaintPalette("acrilex")} label="Acrilex" />
-        <OptionRow active={paintPalette === "dmc"} onClick={() => setPaintPalette("dmc")} label="DMC (referência)" />
+      <Section title="Marca principal de Tinta">
+        {PAINT_BRANDS.map((b) => (
+          <OptionRow
+            key={b.id}
+            active={paintPalette === b.id}
+            onClick={() => setPaintPalette(b.id)}
+            label={b.label}
+            desc={`${b.line} · ${b.colors.length} cores`}
+          />
+        ))}
+        <p className="text-[11px] text-muted-foreground mt-2 px-1">
+          O resultado mostra a marca escolhida em destaque + equivalência automática nas demais marcas nacionais.
+        </p>
       </Section>
     );
   }
