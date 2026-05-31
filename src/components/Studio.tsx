@@ -316,7 +316,7 @@ export default function Studio() {
               className="relative inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border bg-card hover:bg-secondary transition-colors"
             >
               <History className="size-3.5" /> Histórico
-              {history.length > 0 && (
+              {hydrated && history.length > 0 && (
                 <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
                   {history.length}
                 </span>
