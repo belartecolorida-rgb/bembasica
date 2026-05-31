@@ -442,6 +442,37 @@ export default function Studio() {
           </aside>
         </div>
       </main>
+
+      <HistoryPanel
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        items={history}
+        onClear={() => { setHistory([]); saveHistory([]); }}
+        onRemove={(id) => setHistory((h) => { const n = h.filter((i) => i.id !== id); saveHistory(n); return n; })}
+        onReopen={(item) => {
+          if (!item.originalRef) return;
+          setImageData(item.originalRef);
+          setResultUrl(item.resultRef ?? null);
+          setActive(item.module as ModuleId);
+          setStitch(null);
+          setHistoryOpen(false);
+        }}
+        onDownload={(item) => {
+          if (item.resultRef) downloadResult(item.resultRef, `${item.module}-${item.id}.png`);
+        }}
+        onReexport={async (item) => {
+          if (!item.originalRef) return;
+          setActive(item.module as ModuleId);
+          setImageData(item.originalRef);
+          setResultUrl(null);
+          setHistoryOpen(false);
+          // wait a tick so state settles, then run AI with stored variant
+          setTimeout(() => {
+            if (item.module === "ponto-cruz") runStitch();
+            else { if (item.variant) setVariant(item.variant); runAI(); }
+          }, 50);
+        }}
+      />
     </div>
   );
 }
