@@ -288,6 +288,17 @@ export default function Studio() {
             <span className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground">
               <Cpu className="size-3" /> Gemini 2.5 · Nano Banana
             </span>
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="relative inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border bg-card hover:bg-secondary transition-colors"
+            >
+              <History className="size-3.5" /> Histórico
+              {history.length > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+                  {history.length}
+                </span>
+              )}
+            </button>
           </div>
         </header>
 
