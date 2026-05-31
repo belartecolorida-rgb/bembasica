@@ -61,7 +61,7 @@ export default function Studio() {
   const [variant, setVariant] = useState<string>("bordado-intermediario");
   const [count, setCount] = useState(14);
   const [stitch, setStitch] = useState<StitchResult | null>(null);
-  const [paintPalette, setPaintPalette] = useState<"dmc" | "acrilex">("dmc");
+  const [paintPalette, setPaintPalette] = useState<string>("acrilex");
   const [extractedColors, setExtractedColors] = useState<{ hex: string; pct: number }[]>([]);
   const [mockupSurface, setMockupSurface] = useState<"camiseta" | "caneca" | "bastidor" | "tecido">("camiseta");
   const [history, setHistory] = useState<HistoryItem[]>(() => loadHistory());
