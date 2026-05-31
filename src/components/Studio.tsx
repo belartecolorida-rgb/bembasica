@@ -7,9 +7,13 @@ import {
   History, Trash2, RotateCw, FolderOpen, AlertCircle,
 } from "lucide-react";
 import { transformImage } from "@/lib/transform.functions";
-import { DMC, PAINT_BRANDS, getBrand, nearest, paintEquivalents, rgbToHex } from "@/lib/dmc-palette";
+import { DMC, PAINT_BRANDS, getBrand, nearest, paintEquivalents, colorDistance, rgbToHex } from "@/lib/dmc-palette";
 import { imageToStitch, drawStitch, type StitchResult } from "@/lib/cross-stitch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  getProject, saveProject, listProjects, getCurrentProject, setCurrentProject,
+  normHex, type ColorOverride, type ProjectPrefs,
+} from "@/lib/projects";
 
 type ModuleId =
   | "bordado" | "pintura" | "ponto-cruz" | "cartoon"
