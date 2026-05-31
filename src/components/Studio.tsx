@@ -521,7 +521,7 @@ function ControlsForModule(props: {
   active: ModuleId;
   variant: string; setVariant: (v: string) => void;
   count: number; setCount: (n: number) => void;
-  paintPalette: "dmc" | "acrilex"; setPaintPalette: (p: "dmc" | "acrilex") => void;
+  paintPalette: string; setPaintPalette: (p: string) => void;
 }) {
   const { active, variant, setVariant, count, setCount, paintPalette, setPaintPalette } = props;
   if (active === "bordado") {
