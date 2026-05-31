@@ -698,3 +698,253 @@ function FeatureList() {
     </div>
   );
 }
+
+// ============================================================
+// History: types, persistence, helpers, and panel UI
+// ============================================================
+
+type HistoryStatus = "pending" | "ok" | "error";
+type HistoryItem = {
+  id: string;
+  ts: number;
+  module: string;
+  variant?: string;
+  status: HistoryStatus;
+  thumb: string;          // small data URL of original
+  resultThumb?: string;   // small data URL of result
+  originalRef?: string;   // full original data URL (may be dropped to save space)
+  resultRef?: string;     // full result data URL (may be dropped)
+  meta?: string;
+  errorMsg?: string;
+};
+
+const HISTORY_KEY = "atelier:history:v1";
+const MAX_ITEMS = 30;
+
+function loadHistory(): HistoryItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as HistoryItem[];
+  } catch { return []; }
+}
+
+function saveHistory(items: HistoryItem[]) {
+  if (typeof window === "undefined") return;
+  // Persist only thumbnails + metadata to stay within quota
+  const slim = items.slice(0, MAX_ITEMS).map((i) => ({
+    ...i,
+    originalRef: undefined,
+    resultRef: undefined,
+  }));
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
+  } catch {
+    // quota exceeded — trim further
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(slim.slice(0, 10))); } catch { /* ignore */ }
+  }
+}
+
+function pushHistory(
+  setHistory: React.Dispatch<React.SetStateAction<HistoryItem[]>>,
+  partial: Omit<HistoryItem, "id" | "ts">,
+): string {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const item: HistoryItem = { id, ts: Date.now(), ...partial };
+  setHistory((prev) => {
+    const next = [item, ...prev].slice(0, MAX_ITEMS);
+    saveHistory(next);
+    return next;
+  });
+  return id;
+}
+
+function updateHistory(
+  setHistory: React.Dispatch<React.SetStateAction<HistoryItem[]>>,
+  id: string,
+  patch: Partial<HistoryItem>,
+) {
+  setHistory((prev) => {
+    const next = prev.map((i) => (i.id === id ? { ...i, ...patch } : i));
+    saveHistory(next);
+    return next;
+  });
+}
+
+async function makeThumb(src: string, max = 160): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const ctx = c.getContext("2d");
+      if (!ctx) return resolve(src);
+      ctx.drawImage(img, 0, 0, w, h);
+      try { resolve(c.toDataURL("image/jpeg", 0.7)); } catch { resolve(src); }
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+}
+
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function HistoryPanel(props: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  items: HistoryItem[];
+  onClear: () => void;
+  onRemove: (id: string) => void;
+  onReopen: (item: HistoryItem) => void;
+  onDownload: (item: HistoryItem) => void;
+  onReexport: (item: HistoryItem) => void;
+}) {
+  const { open, onOpenChange, items, onClear, onRemove, onReopen, onDownload, onReexport } = props;
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+        <SheetHeader className="px-5 py-4 border-b border-border">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <History className="size-4 text-primary" /> Histórico
+          </SheetTitle>
+          <p className="text-xs text-muted-foreground">
+            Seus últimos uploads e resultados ({items.length})
+          </p>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {items.length === 0 ? (
+            <div className="text-center py-16 text-sm text-muted-foreground">
+              <History className="size-8 mx-auto mb-3 opacity-40" />
+              Nenhum item ainda. Gere um resultado para começar.
+            </div>
+          ) : (
+            items.map((item) => (
+              <HistoryRow
+                key={item.id}
+                item={item}
+                onRemove={() => onRemove(item.id)}
+                onReopen={() => onReopen(item)}
+                onDownload={() => onDownload(item)}
+                onReexport={() => onReexport(item)}
+              />
+            ))
+          )}
+        </div>
+
+        {items.length > 0 && (
+          <div className="border-t border-border p-3">
+            <button
+              onClick={onClear}
+              className="w-full text-xs text-muted-foreground hover:text-destructive py-2 flex items-center justify-center gap-1.5"
+            >
+              <Trash2 className="size-3.5" /> Limpar histórico
+            </button>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function HistoryRow({ item, onRemove, onReopen, onDownload, onReexport }: {
+  item: HistoryItem;
+  onRemove: () => void;
+  onReopen: () => void;
+  onDownload: () => void;
+  onReexport: () => void;
+}) {
+  const expired = !item.originalRef && !item.resultRef;
+  return (
+    <div className="rounded-lg border border-border bg-card p-3 flex gap-3">
+      <div className="relative shrink-0">
+        <img
+          src={item.resultThumb ?? item.thumb}
+          alt=""
+          className="size-16 rounded-md object-cover border border-border bg-muted"
+        />
+        <StatusBadge status={item.status} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{moduleLabel(item.module)}</p>
+            <p className="text-[11px] text-muted-foreground truncate">
+              {item.variant ?? "—"} · {formatTime(item.ts)}
+            </p>
+            {item.meta && <p className="text-[11px] text-muted-foreground truncate">{item.meta}</p>}
+            {item.status === "error" && item.errorMsg && (
+              <p className="text-[11px] text-destructive flex items-center gap-1 mt-0.5">
+                <AlertCircle className="size-3" /> {item.errorMsg}
+              </p>
+            )}
+            {expired && item.status === "ok" && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Arquivos não disponíveis (sessão anterior). Reenvie a imagem.
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onRemove}
+            className="text-muted-foreground hover:text-destructive p-1 -m-1"
+            title="Remover"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          <MiniBtn onClick={onReopen} disabled={!item.originalRef}>
+            <FolderOpen className="size-3" /> Reabrir
+          </MiniBtn>
+          <MiniBtn onClick={onDownload} disabled={!item.resultRef}>
+            <Download className="size-3" /> PNG
+          </MiniBtn>
+          <MiniBtn onClick={onReexport} disabled={!item.originalRef}>
+            <RotateCw className="size-3" /> Reexportar
+          </MiniBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: HistoryStatus }) {
+  const map: Record<HistoryStatus, { bg: string; label: string }> = {
+    pending: { bg: "bg-amber-500", label: "…" },
+    ok: { bg: "bg-emerald-500", label: "✓" },
+    error: { bg: "bg-destructive", label: "!" },
+  };
+  const s = map[status];
+  return (
+    <span className={`absolute -top-1 -right-1 size-4 rounded-full ${s.bg} text-white text-[9px] font-bold flex items-center justify-center border-2 border-card`}>
+      {s.label}
+    </span>
+  );
+}
+
+function MiniBtn({ onClick, children, disabled }: {
+  onClick: () => void; children: React.ReactNode; disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-border bg-background hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
+
+function moduleLabel(id: string): string {
+  const found = MODULES.find((m) => m.id === id);
+  return found ? found.label : id;
+}
