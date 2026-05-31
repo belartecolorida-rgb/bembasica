@@ -406,27 +406,82 @@ export default function Studio() {
 
                 {active === "cores-tinta" && extractedColors.length > 0 && (
                   <Panel title={`Mapa de Tintas · Equivalência entre marcas nacionais`}>
+                    <ProjectBar
+                      projectName={projectName}
+                      setProjectName={setProjectName}
+                      overridesCount={Object.keys(overrides).length}
+                      onSave={() => {
+                        const name = projectName.trim();
+                        if (!name) return;
+                        const p: ProjectPrefs = {
+                          name, paintPalette, overrides, updatedAt: Date.now(),
+                        };
+                        saveProject(p);
+                        setCurrentProject(name);
+                        setSavedTick((t) => t + 1);
+                      }}
+                      onLoad={(name) => {
+                        const p = getProject(name);
+                        if (!p) return;
+                        setProjectName(p.name);
+                        setOverrides(p.overrides ?? {});
+                        setPaintPalette(p.paintPalette);
+                        setCurrentProject(p.name);
+                      }}
+                      onClearOverrides={() => setOverrides({})}
+                      savedTick={savedTick}
+                    />
                     <p className="text-xs text-muted-foreground mb-3">
-                      Marca principal destacada: <b>{getBrand(paintPalette)?.label ?? paintPalette}</b>. As demais aparecem como equivalência aproximada (ΔE perceptual).
+                      Marca principal: <b>{getBrand(paintPalette)?.label ?? paintPalette}</b>. Você pode editar manualmente a equivalência clicando em <b>Editar</b> em cada cor — a proximidade é recalculada em tempo real.
                     </p>
                     <div className="space-y-2">
                       {extractedColors.map((c, i) => {
+                        const key = normHex(c.hex);
+                        const ov = overrides[key];
                         const equivalents = paintEquivalents(c.hex);
-                        const primary = equivalents.find((e) => e.brand.id === paintPalette) ?? equivalents[0];
-                        const others = equivalents.filter((e) => e.brand.id !== primary.brand.id);
+                        let primaryBrand = getBrand(paintPalette) ?? PAINT_BRANDS[0];
+                        let primaryColor = nearest(primaryBrand.colors, c.hex);
+                        if (ov) {
+                          const b = getBrand(ov.brandId);
+                          const m = b?.colors.find((x) => x.code === ov.code);
+                          if (b && m) { primaryBrand = b; primaryColor = m; }
+                        }
+                        const primaryDelta = colorDistance(c.hex, primaryColor.hex);
+                        const others = equivalents.filter((e) => e.brand.id !== primaryBrand.id);
                         return (
                           <div key={i} className="rounded-md border border-border bg-card p-3">
                             <div className="flex items-center gap-3">
                               <div className="size-12 rounded-md border border-border shrink-0" style={{ background: c.hex }} />
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs text-muted-foreground">{c.hex} · {c.pct.toFixed(1)}% da imagem</p>
-                                <p className="text-sm font-semibold truncate">
-                                  {primary.brand.label} · {primary.match.code} — {primary.match.name}
+                                <p className="text-xs text-muted-foreground">
+                                  {c.hex} · {c.pct.toFixed(1)}% da imagem
+                                  {ov && <span className="ml-2 text-primary font-medium">· editado</span>}
                                 </p>
-                                <p className="text-[11px] text-muted-foreground">{primary.brand.line} · proximidade {100 - primary.delta}%</p>
+                                <p className="text-sm font-semibold truncate">
+                                  {primaryBrand.label} · {primaryColor.code} — {primaryColor.name}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {primaryBrand.line} · proximidade {100 - primaryDelta}%
+                                </p>
                               </div>
-                              <div className="size-8 rounded border border-border" style={{ background: primary.match.hex }} />
+                              <div className="size-8 rounded border border-border" style={{ background: primaryColor.hex }} />
                             </div>
+
+                            <OverrideEditor
+                              srcHex={c.hex}
+                              current={{ brandId: primaryBrand.id, code: primaryColor.code }}
+                              isOverridden={!!ov}
+                              onChange={(next) => {
+                                setOverrides((m) => ({ ...m, [key]: next }));
+                              }}
+                              onReset={() => {
+                                setOverrides((m) => {
+                                  const { [key]: _, ...rest } = m;
+                                  return rest;
+                                });
+                              }}
+                            />
+
                             <div className="mt-2.5 pt-2.5 border-t border-border grid sm:grid-cols-3 gap-1.5">
                               {others.map((e) => (
                                 <div key={e.brand.id} className="flex items-center gap-2 text-xs">
