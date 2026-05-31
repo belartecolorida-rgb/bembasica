@@ -1076,3 +1076,158 @@ function moduleLabel(id: string): string {
   const found = MODULES.find((m) => m.id === id);
   return found ? found.label : id;
 }
+
+function ProjectBar(props: {
+  projectName: string;
+  setProjectName: (v: string) => void;
+  overridesCount: number;
+  onSave: () => void;
+  onLoad: (name: string) => void;
+  onClearOverrides: () => void;
+  savedTick: number;
+}) {
+  const { projectName, setProjectName, overridesCount, onSave, onLoad, onClearOverrides, savedTick } = props;
+  const [projects, setProjects] = useState<ProjectPrefs[]>([]);
+  const [justSaved, setJustSaved] = useState(false);
+  useEffect(() => { setProjects(listProjects()); }, [savedTick]);
+  useEffect(() => {
+    if (savedTick === 0) return;
+    setJustSaved(true);
+    const t = setTimeout(() => setJustSaved(false), 1500);
+    return () => clearTimeout(t);
+  }, [savedTick]);
+
+  return (
+    <div className="mb-3 rounded-md border border-border bg-secondary/40 p-2.5 flex flex-wrap items-center gap-2">
+      <input
+        value={projectName}
+        onChange={(e) => setProjectName(e.target.value)}
+        placeholder="Nome do projeto"
+        className="flex-1 min-w-[140px] bg-background border border-border rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+      />
+      {projects.length > 0 && (
+        <select
+          value=""
+          onChange={(e) => { if (e.target.value) onLoad(e.target.value); }}
+          className="bg-background border border-border rounded-md px-2 py-1.5 text-sm"
+        >
+          <option value="">Carregar…</option>
+          {projects.map((p) => (
+            <option key={p.name} value={p.name}>{p.name}</option>
+          ))}
+        </select>
+      )}
+      <button
+        onClick={onSave}
+        disabled={!projectName.trim()}
+        className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+      >
+        {justSaved ? "✓ Salvo" : "Salvar preferências"}
+      </button>
+      {overridesCount > 0 && (
+        <button
+          onClick={onClearOverrides}
+          className="text-xs px-2.5 py-1.5 rounded-md border border-border bg-card hover:bg-secondary transition-colors"
+          title="Remover todas as substituições manuais"
+        >
+          Limpar overrides ({overridesCount})
+        </button>
+      )}
+    </div>
+  );
+}
+
+function OverrideEditor(props: {
+  srcHex: string;
+  current: { brandId: string; code: string };
+  isOverridden: boolean;
+  onChange: (next: ColorOverride) => void;
+  onReset: () => void;
+}) {
+  const { srcHex, current, isOverridden, onChange, onReset } = props;
+  const [open, setOpen] = useState(false);
+  const [brandId, setBrandId] = useState(current.brandId);
+  const [code, setCode] = useState(current.code);
+
+  useEffect(() => { setBrandId(current.brandId); setCode(current.code); }, [current.brandId, current.code, open]);
+
+  const brand = getBrand(brandId) ?? PAINT_BRANDS[0];
+  const color = brand.colors.find((c) => c.code === code) ?? brand.colors[0];
+  const proximity = 100 - colorDistance(srcHex, color.hex);
+
+  return (
+    <div className="mt-2.5">
+      {!open ? (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setOpen(true)}
+            className="text-[11px] px-2 py-1 rounded-md border border-border bg-card hover:bg-secondary transition-colors"
+          >
+            Editar equivalência
+          </button>
+          {isOverridden && (
+            <button
+              onClick={onReset}
+              className="text-[11px] px-2 py-1 rounded-md border border-border bg-card hover:bg-secondary transition-colors text-muted-foreground"
+            >
+              Restaurar automático
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-md border border-primary/40 bg-background p-2.5 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-[11px] text-muted-foreground">
+              Marca
+              <select
+                value={brandId}
+                onChange={(e) => {
+                  const nb = getBrand(e.target.value);
+                  setBrandId(e.target.value);
+                  if (nb) setCode(nearest(nb.colors, srcHex).code);
+                }}
+                className="mt-1 w-full bg-card border border-border rounded-md px-2 py-1.5 text-xs"
+              >
+                {PAINT_BRANDS.map((b) => (
+                  <option key={b.id} value={b.id}>{b.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-[11px] text-muted-foreground">
+              Cor
+              <select
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="mt-1 w-full bg-card border border-border rounded-md px-2 py-1.5 text-xs"
+              >
+                {brand.colors.map((c) => (
+                  <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <div className="size-6 rounded border border-border" style={{ background: color.hex }} />
+            <span className="font-medium">{color.code}</span>
+            <span className="text-muted-foreground truncate">{color.name}</span>
+            <span className="ml-auto text-muted-foreground">proximidade {proximity}%</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { onChange({ brandId, code }); setOpen(false); }}
+              className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90"
+            >
+              Aplicar
+            </button>
+            <button
+              onClick={() => setOpen(false)}
+              className="text-xs px-3 py-1.5 rounded-md border border-border bg-card hover:bg-secondary"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
